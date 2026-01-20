@@ -1,0 +1,12 @@
+name: route_opt
+channels:
+  - conda-forge
+dependencies:
+  - python=3.10
+  - pip
+  - pyyaml
+  - numpy
+  - matplotlib
+  - imageio
+  - pillow
+

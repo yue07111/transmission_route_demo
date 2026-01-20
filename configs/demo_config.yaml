@@ -1,0 +1,72 @@
+planner:
+  algorithm: astar
+  base_distance_weight: 1.0
+  heuristic_weight: 1.0
+  # We allow negative rewards (corridor/roads), so clamp edge costs to be positive.
+  min_step_cost: 0.05
+
+constraints:
+  # Area (circle) constraints: damping/entry penalty
+  area_damping:
+    damping_cell_cost: 2.0
+    soft_buffer_m: 120.0
+    buffer_cost: 0.6
+
+  # Strip (rectangle) constraints: crossing + crossing angle
+  strip_crossing:
+    crossable_strip_cell_cost: 0.3
+    angle_preference: prefer_perpendicular  # prefer_perpendicular / prefer_parallel
+    angle_cost_weight: 1.5
+
+  # Landable points: turning points & straight towers must land here
+  landable_points:
+    min_clearance_m: 150.0
+    forbidden_radius_m: 120.0
+    random_seed: 42
+    random_forbid_fraction: 0.03
+
+  # Turning constraints
+  turn_angle:
+    max_turn_angle_deg: 90.0
+    require_turn_landable: true
+    turn_cost_weight: 12.0
+
+  # Parallel corridor reuse: reward when near + aligned; penalty if corridor density too high
+  corridor_reuse:
+    corridor_threshold_m: 350.0
+    distance_sigma_m: 200.0
+    static_reward: -0.25
+    directional_reward_factor: 1.2
+    max_density: 2
+    dense_penalty: 3.0
+
+  # Road access reward
+  road_reward:
+    road_threshold_m: 250.0
+    distance_sigma_m: 140.0
+    static_reward: -0.15
+    directional_reward_factor: 0.6
+
+  # Sensitive facilities: hard-avoid + soft buffer
+  sensitive_facility:
+    sigma_m: 180.0
+
+postprocess:
+  max_span_m: 800.0
+  min_straight_tower_per_segment: 1
+  straight_tower_search_radius_cells: 3
+
+visualization:
+  show_heatmap: true
+  heatmap_clip_percentile: 95
+  output_dpi: 160
+  gif:
+    enable: true
+    # GIF：避免帧数过多（matplotlib 逐帧渲染会明显变慢）
+    frame_every_expansions: 250
+    max_frames: 60
+    duration_s: 0.12
+    dpi: 90
+    show_heatmap: false
+    heatmap_clip_percentile: 95
+    title: "A* exploration (demo)"

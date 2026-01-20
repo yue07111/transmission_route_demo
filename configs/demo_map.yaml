@@ -1,0 +1,185 @@
+# Demo map spec for transmission line routing
+env:
+  width_m: 5000
+  height_m: 3000
+  resolution_m: 50
+
+start: [300, 300]
+goal:  [4700, 2600]
+
+# 线状条状物: oriented rectangles
+strips:
+  - id: strip_existing_line_01
+    center: [1500, 1500]
+    length_m: 3000
+    width_m: 100
+    angle_deg: 20
+    is_crossable: true
+    min_cross_angle_deg: 30
+    cross_cost: 20
+    note: "现状线路走廊/管线"
+  - id: strip_pipeline_02
+    center: [2500, 800]
+    length_m: 2200
+    width_m: 120
+    angle_deg: -10
+    is_crossable: true
+    min_cross_angle_deg: 25
+    cross_cost: 15
+    note: "管线走廊"
+  - id: strip_no_tower_03
+    center: [3300, 2000]
+    length_m: 2000
+    width_m: 140
+    angle_deg: 70
+    is_crossable: false
+    min_cross_angle_deg: 30
+    cross_cost: 0
+    note: "禁止跨越/不可立塔区(硬约束)"
+  - id: strip_existing_line_04
+    center: [3800, 1200]
+    length_m: 1800
+    width_m: 100
+    angle_deg: 0
+    is_crossable: true
+    min_cross_angle_deg: 40
+    cross_cost: 25
+    note: "现状线路走廊"
+  - id: strip_railway_05
+    center: [1000, 2200]
+    length_m: 1500
+    width_m: 120
+    angle_deg: -60
+    is_crossable: true
+    min_cross_angle_deg: 35
+    cross_cost: 18
+    note: "铁路/线状障碍"
+
+# 片状区域: circles
+areas:
+  - id: area_wetland_01
+    center: [2200, 1500]
+    radius_m: 300
+    is_enterable: false
+    is_crossable: false
+    damping: 0
+    entry_penalty: 0
+    cross_cost: 0
+    note: "湿地/保护区(硬避让)"
+  - id: area_forest_02
+    center: [1200, 900]
+    radius_m: 350
+    is_enterable: true
+    is_crossable: true
+    damping: 2.0
+    entry_penalty: 30
+    cross_cost: 2
+    note: "林地(可进入但代价高)"
+  - id: area_hilly_03
+    center: [3000, 2500]
+    radius_m: 400
+    is_enterable: true
+    is_crossable: true
+    damping: 1.5
+    entry_penalty: 20
+    cross_cost: 2
+    note: "丘陵/高程起伏"
+  - id: area_village_04
+    center: [4100, 2300]
+    radius_m: 250
+    is_enterable: false
+    is_crossable: false
+    damping: 0
+    entry_penalty: 0
+    cross_cost: 0
+    note: "村镇(硬避让)"
+  - id: area_quarry_05
+    center: [3200, 500]
+    radius_m: 260
+    is_enterable: false
+    is_crossable: false
+    damping: 0
+    entry_penalty: 0
+    cross_cost: 0
+    note: "采石场(硬避让)"
+  - id: area_ice_06
+    center: [800, 2500]
+    radius_m: 300
+    is_enterable: true
+    is_crossable: true
+    damping: 3.0
+    entry_penalty: 40
+    cross_cost: 4
+    note: "冰区(高风险代价)"
+  - id: area_fault_07
+    center: [2600, 1800]
+    radius_m: 350
+    is_enterable: true
+    is_crossable: true
+    damping: 2.5
+    entry_penalty: 35
+    cross_cost: 5
+    note: "不良地质带(尽量绕行)"
+
+# 相邻设施/敏感点: circles with hard+soft
+sensitive_points:
+  - id: airport_01
+    center: [800, 1400]
+    radius_hard_m: 250
+    radius_soft_m: 600
+    soft_penalty: 10
+    note: "机场净空/敏感设施"
+  - id: met_station_02
+    center: [4300, 700]
+    radius_hard_m: 180
+    radius_soft_m: 450
+    soft_penalty: 8
+    note: "气象站"
+  - id: military_zone_03
+    center: [2500, 2700]
+    radius_hard_m: 220
+    radius_soft_m: 550
+    soft_penalty: 12
+    note: "军事管理区"
+
+# 平行走廊: existing corridor lines
+corridor:
+  primary:
+    id: corridor_existing_01
+    points:
+      - [0, 1300]
+      - [1000, 1400]
+      - [2500, 1600]
+      - [4000, 1700]
+      - [5000, 1750]
+  others:
+    - id: corridor_existing_02
+      points:
+        - [0, 1150]
+        - [1200, 1250]
+        - [2600, 1450]
+        - [5000, 1550]
+    - id: corridor_existing_03
+      points:
+        - [0, 1500]
+        - [1200, 1600]
+        - [2600, 1750]
+        - [5000, 1900]
+
+# Roads (construction access)
+roads:
+  - id: road_01
+    points:
+      - [0, 400]
+      - [5000, 500]
+    note: "省道"
+  - id: road_02
+    points:
+      - [0, 2800]
+      - [5000, 2700]
+    note: "高速"
+  - id: road_03
+    points:
+      - [2000, 0]
+      - [2100, 3000]
+    note: "纵向道路"
