@@ -37,7 +37,8 @@ class AStarPlanner:
         bx, by = env.cell_center_world(b)
         return math.hypot(ax - bx, ay - by) * float(self.cfg.get("heuristic_weight", 1.0))
 
-    def plan(self, env, constraints: ConstraintManager, start: Cell, goal: Cell) -> PlanResult:
+    def plan(self, env, constraints: ConstraintManager, start: Cell, goal: Cell, 
+             progress_callback=None) -> PlanResult:
         # Ensure static maps exist
         if env.costmap is None or env.hard_mask is None:
             raise RuntimeError("env costmap/hard_mask not initialized; call ConstraintManager.rasterize_all first")
@@ -53,9 +54,24 @@ class AStarPlanner:
 
         visited_order: List[Cell] = []
         expansions = 0
+        
+        # Dynamic bounding box for infinite map search
+        # Calculate search bounds based on start/goal with padding
+        search_padding = int(self.cfg.get("search_padding_cells", 200))  # Default 200 cells padding
+        min_x = min(start[0], goal[0]) - search_padding
+        max_x = max(start[0], goal[0]) + search_padding
+        min_y = min(start[1], goal[1]) - search_padding
+        max_y = max(start[1], goal[1]) + search_padding
+        
+        def in_search_bounds(cell: Cell) -> bool:
+            """Check if cell is within dynamic search bounds"""
+            x, y = cell
+            return min_x <= x <= max_x and min_y <= y <= max_y
 
         base_w = float(self.cfg.get("base_distance_weight", 1.0))
         min_step_cost = float(self.cfg.get("min_step_cost", 1e-6))
+        # Preference for straight movement (reduce unnecessary turns)
+        straight_preference = float(self.cfg.get("straight_preference_bonus", 0.0))
 
         best_goal_state: Optional[Tuple[int, int, int]] = None
         best_goal_cost = float('inf')
@@ -71,6 +87,10 @@ class AStarPlanner:
 
             expansions += 1
             visited_order.append(cell)
+            
+            # Call progress callback periodically to update visualization
+            if progress_callback and expansions % 10 == 0:  # Update every 10 expansions
+                progress_callback(visited_order.copy())
 
             if cell == goal:
                 best_goal_state = state
@@ -81,7 +101,8 @@ class AStarPlanner:
             for new_heading, (dx, dy) in enumerate(DIRS_8):
                 nx, ny = x + dx, y + dy
                 ncell = (nx, ny)
-                if not env.in_bounds(ncell):
+                # Use dynamic search bounds instead of fixed map bounds
+                if not in_search_bounds(ncell):
                     continue
                 if env.is_blocked(ncell):
                     continue
@@ -94,6 +115,17 @@ class AStarPlanner:
                 base_step = step_distance_m(env.resolution_m, new_heading) * base_w
                 node_extra = env.cell_cost(ncell)
                 step_cost = base_step + node_extra + float(ec.extra_cost)
+                
+                # Prefer straight movement: give bonus for continuing in same direction
+                # This reduces unnecessary turns while still allowing turns when needed
+                if heading >= 0 and new_heading == heading:
+                    # Straight movement - apply bonus (negative cost = reward)
+                    step_cost -= straight_preference
+                elif heading >= 0 and new_heading != heading:
+                    # Turning movement - add extra penalty beyond turn_cost_weight
+                    # This makes algorithm prefer straight paths when possible
+                    turn_penalty = float(self.cfg.get("turn_penalty_extra", 0.0))
+                    step_cost += turn_penalty
 
                 # Clamp (needed because we allow negative rewards in costmap/edge cost)
                 if step_cost < min_step_cost:

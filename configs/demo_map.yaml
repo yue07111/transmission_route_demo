@@ -2,7 +2,7 @@
 env:
   width_m: 5000
   height_m: 3000
-  resolution_m: 50
+  resolution_m: 25
 
 start: [300, 300]
 goal:  [4700, 2600]

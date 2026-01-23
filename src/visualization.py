@@ -243,8 +243,16 @@ def make_gif(
 
         fig.set_dpi(dpi)
         fig.canvas.draw()
+        # Matplotlib 3.8+ (and some backends) removed/changed tostring_rgb().
+        # Prefer buffer_rgba() and convert to RGB.
         w, h = fig.canvas.get_width_height()
-        img = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8).reshape(h, w, 3)
+        if hasattr(fig.canvas, "buffer_rgba"):
+            rgba = np.asarray(fig.canvas.buffer_rgba(), dtype=np.uint8).reshape(h, w, 4)
+            img = rgba[:, :, :3]
+        else:
+            # Fallback for older APIs: ARGB -> RGB
+            argb = np.frombuffer(fig.canvas.tostring_argb(), dtype=np.uint8).reshape(h, w, 4)
+            img = argb[:, :, 1:4]
         frames.append(img)
 
     plt.close(fig)

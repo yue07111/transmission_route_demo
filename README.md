@@ -21,6 +21,8 @@ conda activate route_opt
 
 ## 1. 快速运行
 
+### 1.1 命令行版本（生成静态图像和GIF）
+
 在项目目录执行：
 
 ```bash
@@ -31,6 +33,46 @@ python run_demo.py --config configs/demo_config.yaml --map configs/demo_map.yaml
 
 ```
 [demo] Output directory: .../outputs/20260120_123456
+```
+
+### 1.2 交互式版本（实时可视化 - Pygame）
+
+在项目目录执行：
+
+```bash
+python interactive_demo.py --config configs/demo_config.yaml --map configs/demo_map.yaml
+```
+
+**交互式功能：**
+- **拖拽起始点/目标点**：左键点击并拖拽起始点（红色）或目标点（蓝色）来改变路径规划的起点和终点
+- **添加条状物障碍**：按 `S` 键进入条状物绘制模式，然后点击两点绘制矩形条状物
+- **添加区域障碍**：按 `A` 键进入区域绘制模式，点击中心点后拖动鼠标设置半径绘制圆形区域
+- **随机生成障碍物**：点击 "Random Obstacles" 按钮在当前视图范围内生成随机障碍物
+- **平移和缩放**：左键拖动平移视图，鼠标滚轮缩放
+- **开始规划**：点击 "Start" 按钮开始路径规划
+
+### 1.3 Web 版本（浏览器可视化）
+
+在项目目录执行：
+
+```bash
+python web_demo.py --config configs/demo_config.yaml --map configs/demo_map.yaml
+```
+
+然后在浏览器中打开 `http://localhost:5000`
+
+**Web 版本功能：**
+- **设置起点/终点**：点击侧边栏按钮后在地图上点击设置
+- **添加障碍物**：支持添加条状和圆形障碍物
+- **随机生成障碍物**：在当前视图范围内生成随机障碍物
+- **路径规划**：点击"开始规划"按钮进行路径规划
+- **实时可视化**：显示路径、塔位和障碍物
+- **平移和缩放**：支持鼠标拖动和滚轮缩放
+- **退出**：按 `ESC` 键或关闭窗口退出
+
+**窗口大小调整：**
+```bash
+python interactive_demo.py --config configs/demo_config.yaml --map configs/demo_map.yaml --size 1600 900
 ```
 
 ## 2. 约束类与对应逻辑

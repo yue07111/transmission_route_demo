@@ -1,0 +1,979 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Transmission Line Routing</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f5f5f5;
+            overflow: hidden;
+        }
+        
+        #container {
+            display: flex;
+            height: 100vh;
+        }
+        
+        #map-container {
+            flex: 1;
+            position: relative;
+            background-color: #fafafa;
+        }
+        
+        #canvas {
+            cursor: crosshair;
+            display: block;
+        }
+        
+        #sidebar {
+            width: 300px;
+            background-color: #2c3e50;
+            color: white;
+            padding: 20px;
+            overflow-y: auto;
+        }
+        
+        #sidebar h2 {
+            margin-bottom: 20px;
+            color: #ecf0f1;
+        }
+        
+        .control-group {
+            margin-bottom: 20px;
+        }
+        
+        .control-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #bdc3c7;
+        }
+        
+        .control-group input, .control-group button {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+            border: none;
+            border-radius: 4px;
+        }
+        
+        .control-group input[type="number"] {
+            background-color: #34495e;
+            color: white;
+            border: 1px solid #7f8c8d;
+        }
+        
+        .control-group input[type="number"]:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+        
+        .input-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        
+        .input-row label {
+            flex: 1;
+            margin-right: 10px;
+            margin-bottom: 0;
+            font-size: 14px;
+        }
+        
+        .input-row input {
+            flex: 0 0 80px;
+            margin-bottom: 0;
+        }
+        
+        button {
+            background-color: #3498db;
+            color: white;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background-color 0.3s;
+        }
+        
+        button:hover {
+            background-color: #2980b9;
+        }
+        
+        #btn-plan {
+            background-color: #f39c12;
+        }
+        
+        #btn-plan:hover {
+            background-color: #e67e22;
+        }
+        
+        #btn-plan:disabled {
+            background-color: #7f8c8d;
+        }
+        
+        button:disabled {
+            background-color: #7f8c8d;
+            cursor: not-allowed;
+        }
+        
+        .info-panel {
+            background-color: rgba(255, 255, 255, 0.1);
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+        }
+        
+        .info-panel p {
+            margin: 5px 0;
+            font-size: 14px;
+        }
+        
+        #status {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: rgba(52, 152, 219, 0.2);
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <div id="map-container">
+            <canvas id="canvas"></canvas>
+        </div>
+        <div id="sidebar">
+            <div class="control-group">
+                <label>操作模式</label>
+                <button id="btn-set-start">设置起点</button>
+                <button id="btn-set-goal">设置终点</button>
+            </div>
+            
+            <div class="control-group">
+                <label>障碍物</label>
+                <button id="btn-add-strip">添加条状障碍物</button>
+                <button id="btn-add-area">添加圆形障碍物</button>
+                <div style="margin-top: 15px; margin-bottom: 10px;">
+                    <label style="font-weight: bold; margin-bottom: 10px; display: block;">随机生成数量设置</label>
+                    <div class="input-row">
+                        <label>条状障碍物:</label>
+                        <input type="number" id="input-num-strips" min="0" max="20" value="5">
+                    </div>
+                    <div class="input-row">
+                        <label>圆形障碍物:</label>
+                        <input type="number" id="input-num-areas" min="0" max="20" value="5">
+                    </div>
+                    <div class="input-row">
+                        <label>敏感点:</label>
+                        <input type="number" id="input-num-sensitive" min="0" max="10" value="3">
+                    </div>
+                    <div class="input-row">
+                        <label>走廊:</label>
+                        <input type="number" id="input-num-corridors" min="0" max="10" value="2">
+                    </div>
+                    <div class="input-row">
+                        <label>道路:</label>
+                        <input type="number" id="input-num-roads" min="0" max="10" value="2">
+                    </div>
+                </div>
+                <button id="btn-random">随机生成障碍物</button>
+                <button id="btn-clear-obstacles">清除所有障碍物</button>
+            </div>
+            
+            <div class="control-group">
+                <button id="btn-plan">开始规划</button>
+            </div>
+            
+            <div class="info-panel" id="info-panel">
+                <p><strong>状态:</strong> <span id="status-text">就绪</span></p>
+                <p><strong>路径长度:</strong> <span id="path-length">-</span></p>
+                <p><strong>总代价:</strong> <span id="total-cost">-</span></p>
+                <p><strong>塔位数量:</strong> <span id="tower-count">-</span></p>
+            </div>
+            
+            <div id="status"></div>
+        </div>
+    </div>
+    
+    <script>
+        // Global state
+        let mapData = null;
+        let canvas = null;
+        let ctx = null;
+        let scale = 1.0;
+        let panX = 0;
+        let panY = 0;
+        let start = null;
+        let goal = null;
+        let path = null;
+        let turningTowers = [];
+        let straightTowers = [];
+        let mode = 'pan'; // 'pan', 'set-start', 'set-goal', 'add-strip', 'add-area'
+        let stripStart = null;
+        let areaCenter = null;
+        let areaRadius = null;
+        let isDragging = false;
+        let dragStartX = 0;
+        let dragStartY = 0;
+        let panStartX = 0;
+        let panStartY = 0;
+        let visitedNodes = []; // For real-time search visualization
+        let animationFrameId = null;
+        let currentAbortController = null; // For aborting ongoing planning
+        
+        // Function to abort ongoing planning
+        function abortPlanning() {
+            if (currentAbortController) {
+                currentAbortController.abort();
+                currentAbortController = null;
+            }
+            document.getElementById('btn-plan').disabled = false;
+            visitedNodes = [];
+        }
+        
+        // Initialize
+        async function init() {
+            canvas = document.getElementById('canvas');
+            ctx = canvas.getContext('2d');
+            
+            // Set canvas size
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+            
+            // Load map data
+            try {
+                const response = await fetch('/api/init');
+                mapData = await response.json();
+                start = mapData.start;
+                goal = mapData.goal;
+                
+                // Fit map to canvas
+                fitMapToCanvas();
+                
+                // Setup event listeners
+                setupEventListeners();
+                
+                // Draw initial state
+                draw();
+            } catch (error) {
+                console.error('Failed to load map data:', error);
+                updateStatus('加载地图数据失败', 'error');
+            }
+        }
+        
+        function resizeCanvas() {
+            const container = document.getElementById('map-container');
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+            draw();
+        }
+        
+        function fitMapToCanvas() {
+            const padding = 50;
+            const scaleX = (canvas.width - padding * 2) / mapData.width_m;
+            const scaleY = (canvas.height - padding * 2) / mapData.height_m;
+            const baseScale = Math.min(scaleX, scaleY);
+            
+            // Store base scale for reset
+            if (!window.baseScale) {
+                window.baseScale = baseScale;
+            }
+            
+            scale = baseScale;
+            
+            panX = (canvas.width - mapData.width_m * scale) / 2;
+            panY = (canvas.height - mapData.height_m * scale) / 2;
+        }
+        
+        function worldToScreen(wx, wy) {
+            const sx = panX + wx * scale;
+            const sy = panY + (mapData.height_m - wy) * scale; // Flip Y
+            return [sx, sy];
+        }
+        
+        function screenToWorld(sx, sy) {
+            const wx = (sx - panX) / scale;
+            const wy = mapData.height_m - (sy - panY) / scale; // Flip Y
+            return [wx, wy];
+        }
+        
+        function setupEventListeners() {
+            // Button events
+            document.getElementById('btn-set-start').addEventListener('click', () => {
+                mode = 'set-start';
+                updateButtonStates();
+            });
+            
+            document.getElementById('btn-set-goal').addEventListener('click', () => {
+                mode = 'set-goal';
+                updateButtonStates();
+            });
+            
+            document.getElementById('btn-add-strip').addEventListener('click', () => {
+                mode = 'add-strip';
+                updateButtonStates();
+            });
+            
+            document.getElementById('btn-add-area').addEventListener('click', () => {
+                mode = 'add-area';
+                updateButtonStates();
+            });
+            
+            document.getElementById('btn-random').addEventListener('click', async () => {
+                await generateRandomObstacles();
+            });
+            
+            document.getElementById('btn-clear-obstacles').addEventListener('click', async () => {
+                await clearAllObstacles();
+            });
+            
+            document.getElementById('btn-plan').addEventListener('click', async () => {
+                await planPath();
+            });
+            
+            // Canvas events
+            canvas.addEventListener('mousedown', onMouseDown);
+            canvas.addEventListener('mousemove', onMouseMove);
+            canvas.addEventListener('mouseup', onMouseUp);
+            canvas.addEventListener('wheel', onWheel);
+        }
+        
+        function updateButtonStates() {
+            document.getElementById('btn-set-start').style.backgroundColor = 
+                mode === 'set-start' ? '#27ae60' : '#3498db';
+            document.getElementById('btn-set-goal').style.backgroundColor = 
+                mode === 'set-goal' ? '#27ae60' : '#3498db';
+            document.getElementById('btn-add-strip').style.backgroundColor = 
+                mode === 'add-strip' ? '#27ae60' : '#3498db';
+            document.getElementById('btn-add-area').style.backgroundColor = 
+                mode === 'add-area' ? '#27ae60' : '#3498db';
+        }
+        
+        function onMouseDown(e) {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            const [wx, wy] = screenToWorld(x, y);
+            
+            if (mode === 'set-start') {
+                // Abort ongoing planning if any
+                abortPlanning();
+                start = [wx, wy];
+                mode = 'pan';
+                updateButtonStates();
+                // Clear path when start point changes
+                path = null;
+                turningTowers = [];
+                straightTowers = [];
+                visitedNodes = [];
+                draw();
+            } else if (mode === 'set-goal') {
+                // Abort ongoing planning if any
+                abortPlanning();
+                goal = [wx, wy];
+                mode = 'pan';
+                updateButtonStates();
+                // Clear path when goal point changes
+                path = null;
+                turningTowers = [];
+                straightTowers = [];
+                visitedNodes = [];
+                draw();
+            } else if (mode === 'add-strip') {
+                stripStart = [wx, wy];
+                isDragging = true;
+            } else if (mode === 'add-area') {
+                areaCenter = [wx, wy];
+                areaRadius = 0;
+                isDragging = true;
+            } else {
+                // Pan mode
+                isDragging = true;
+                panStartX = panX;
+                panStartY = panY;
+                dragStartX = x;
+                dragStartY = y;
+            }
+        }
+        
+        function onMouseMove(e) {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            if (isDragging) {
+                if (mode === 'add-strip' && stripStart) {
+                    draw();
+                    const [wx, wy] = screenToWorld(x, y);
+                    const [sx, sy] = worldToScreen(stripStart[0], stripStart[1]);
+                    ctx.strokeStyle = '#f0c040';
+                    ctx.lineWidth = 3;
+                    ctx.beginPath();
+                    ctx.moveTo(sx, sy);
+                    ctx.lineTo(x, y);
+                    ctx.stroke();
+                } else if (mode === 'add-area' && areaCenter) {
+                    draw();
+                    const [wx, wy] = screenToWorld(x, y);
+                    const dx = wx - areaCenter[0];
+                    const dy = wy - areaCenter[1];
+                    areaRadius = Math.sqrt(dx * dx + dy * dy);
+                    const [cx, cy] = worldToScreen(areaCenter[0], areaCenter[1]);
+                    ctx.strokeStyle = '#f0c040';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.arc(cx, cy, areaRadius * scale, 0, Math.PI * 2);
+                    ctx.stroke();
+                } else if (mode === 'pan') {
+                    panX = panStartX + (x - dragStartX);
+                    panY = panStartY + (y - dragStartY);
+                    draw();
+                }
+            }
+        }
+        
+        function onMouseUp(e) {
+            if (isDragging) {
+                if (mode === 'add-strip' && stripStart) {
+                    const rect = canvas.getBoundingClientRect();
+                    const x = e.clientX - rect.left;
+                    const y = e.clientY - rect.top;
+                    const [wx, wy] = screenToWorld(x, y);
+                    
+                    const dx = wx - stripStart[0];
+                    const dy = wy - stripStart[1];
+                    const length = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (length > 50) {
+                        const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+                        addStrip(stripStart, length, 100, angle);
+                    }
+                    
+                    stripStart = null;
+                } else if (mode === 'add-area' && areaCenter && areaRadius > 50) {
+                    addArea(areaCenter, areaRadius);
+                    areaCenter = null;
+                    areaRadius = null;
+                }
+                
+                isDragging = false;
+                draw();
+            }
+        }
+        
+        function onWheel(e) {
+            e.preventDefault();
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            // Get world position under mouse before zoom
+            const [wx, wy] = screenToWorld(x, y);
+            
+            // Calculate zoom factor
+            const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
+            const oldScale = scale;
+            const newScale = scale * zoomFactor;
+            
+            // Limit zoom range (allow smaller zoom out)
+            scale = Math.max(0.1, Math.min(5.0, newScale));
+            
+            // Calculate actual zoom factor applied (may be clamped)
+            const actualZoomFactor = scale / oldScale;
+            
+            // Adjust pan to keep world point under mouse fixed
+            // After zoom, the same world point should map to a different screen position
+            // We adjust pan to compensate
+            const [newSx, newSy] = worldToScreen(wx, wy);
+            panX += x - newSx;
+            panY += y - newSy;
+            
+            draw();
+        }
+        
+        async function addStrip(center, length, width, angle) {
+            try {
+                const response = await fetch('/api/add_strip', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        center: center,
+                        length_m: length,
+                        width_m: width,
+                        angle_deg: angle
+                    })
+                });
+                
+                if (response.ok) {
+                    const data = await fetch('/api/init');
+                    mapData = await data.json();
+                    draw();
+                    updateStatus('条状障碍物已添加', 'success');
+                }
+            } catch (error) {
+                console.error('Failed to add strip:', error);
+                updateStatus('添加障碍物失败', 'error');
+            }
+        }
+        
+        async function addArea(center, radius) {
+            try {
+                const response = await fetch('/api/add_area', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        center: center,
+                        radius_m: radius
+                    })
+                });
+                
+                if (response.ok) {
+                    const data = await fetch('/api/init');
+                    mapData = await data.json();
+                    draw();
+                    updateStatus('圆形障碍物已添加', 'success');
+                }
+            } catch (error) {
+                console.error('Failed to add area:', error);
+                updateStatus('添加障碍物失败', 'error');
+            }
+        }
+        
+        async function clearAllObstacles() {
+            // Abort ongoing planning if any
+            abortPlanning();
+            
+            try {
+                const response = await fetch('/api/clear_obstacles', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'}
+                });
+                
+                if (response.ok) {
+                    const data = await fetch('/api/init');
+                    mapData = await data.json();
+                    path = null;
+                    turningTowers = [];
+                    straightTowers = [];
+                    visitedNodes = [];
+                    draw();
+                    updateStatus('所有障碍物已清除', 'success');
+                }
+            } catch (error) {
+                console.error('Failed to clear obstacles:', error);
+                updateStatus('清除障碍物失败', 'error');
+            }
+        }
+        
+        async function generateRandomObstacles() {
+            // Abort ongoing planning if any
+            abortPlanning();
+            
+            try {
+                // Get values from input fields
+                const numStrips = parseInt(document.getElementById('input-num-strips').value) || 5;
+                const numAreas = parseInt(document.getElementById('input-num-areas').value) || 5;
+                const numSensitive = parseInt(document.getElementById('input-num-sensitive').value) || 3;
+                const numCorridors = parseInt(document.getElementById('input-num-corridors').value) || 2;
+                const numRoads = parseInt(document.getElementById('input-num-roads').value) || 2;
+                
+                const viewBounds = {
+                    min: screenToWorld(0, 0),
+                    max: screenToWorld(canvas.width, canvas.height)
+                };
+                
+                const response = await fetch('/api/random_obstacles', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        view_bounds: viewBounds,
+                        num_strips: numStrips,
+                        num_areas: numAreas,
+                        num_sensitive: numSensitive,
+                        num_corridors: numCorridors,
+                        num_roads: numRoads
+                    })
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    mapData.strips = result.strips;
+                    mapData.areas = result.areas;
+                    mapData.sensitive_points = result.sensitive_points || [];
+                    mapData.corridor = result.corridor || {};
+                    mapData.roads = result.roads || [];
+                    path = null;
+                    turningTowers = [];
+                    straightTowers = [];
+                    visitedNodes = [];
+                    draw();
+                    updateStatus('随机障碍物已生成', 'success');
+                }
+            } catch (error) {
+                console.error('Failed to generate obstacles:', error);
+                updateStatus('生成障碍物失败', 'error');
+            }
+        }
+        
+        async function planPath() {
+            if (!start || !goal) {
+                updateStatus('请先设置起点和终点', 'error');
+                return;
+            }
+            
+            // Abort any ongoing planning first
+            abortPlanning();
+            
+            // Clear previous results
+            path = null;
+            turningTowers = [];
+            straightTowers = [];
+            visitedNodes = [];
+            
+            updateStatus('正在规划路径...', 'info');
+            document.getElementById('btn-plan').disabled = true;
+            
+            // Create new AbortController for this planning request
+            currentAbortController = new AbortController();
+            const signal = currentAbortController.signal;
+            
+            try {
+                // Get current view bounds (like random obstacles)
+                const viewBounds = {
+                    min: screenToWorld(0, 0),
+                    max: screenToWorld(canvas.width, canvas.height)
+                };
+                
+                const response = await fetch('/api/plan', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        start: start,
+                        goal: goal,
+                        view_bounds: viewBounds
+                    }),
+                    signal: signal
+                });
+                
+                // Use EventSource for Server-Sent Events (SSE)
+                if (!response.ok) {
+                    throw new Error('Failed to start planning');
+                }
+                
+                // Read stream
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                
+                while (true) {
+                    // Check if aborted
+                    if (signal.aborted) {
+                        reader.cancel();
+                        break;
+                    }
+                    
+                    const {done, value} = await reader.read();
+                    if (done) break;
+                    
+                    const chunk = decoder.decode(value);
+                    const lines = chunk.split('\n');
+                    
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            try {
+                                const data = JSON.parse(line.substring(6));
+                                
+                                if (data.type === 'progress') {
+                                    // Update visited nodes in real-time
+                                    visitedNodes = data.visited;
+                                    draw(); // Redraw with updated visited nodes
+                                } else if (data.type === 'complete') {
+                                    if (data.success) {
+                                        path = data.path;
+                                        turningTowers = data.turning_towers;
+                                        straightTowers = data.straight_towers;
+                                        
+                                        // Update start/goal to actual clamped coordinates if provided
+                                        if (data.start_actual && data.goal_actual) {
+                                            const startDiff = Math.abs(start[0] - data.start_actual[0]) + Math.abs(start[1] - data.start_actual[1]);
+                                            const goalDiff = Math.abs(goal[0] - data.goal_actual[0]) + Math.abs(goal[1] - data.goal_actual[1]);
+                                            if (startDiff > 1 || goalDiff > 1) {
+                                                // Coordinates were clamped, update them
+                                                start = data.start_actual;
+                                                goal = data.goal_actual;
+                                                updateStatus('起点/终点已调整到地图范围内', 'info');
+                                            }
+                                        }
+                                        
+                                        document.getElementById('path-length').textContent = data.path_length;
+                                        document.getElementById('total-cost').textContent = data.total_cost.toFixed(2);
+                                        document.getElementById('tower-count').textContent = 
+                                            (turningTowers.length + straightTowers.length).toString();
+                                        
+                                        draw();
+                                        if (!data.start_actual || !data.goal_actual || 
+                                            (Math.abs(start[0] - data.start_actual[0]) < 1 && 
+                                             Math.abs(start[1] - data.start_actual[1]) < 1 &&
+                                             Math.abs(goal[0] - data.goal_actual[0]) < 1 && 
+                                             Math.abs(goal[1] - data.goal_actual[1]) < 1)) {
+                                            updateStatus('路径规划成功', 'success');
+                                        }
+                                    } else {
+                                        updateStatus('路径规划失败: ' + (data.error || '未知错误'), 'error');
+                                    }
+                                    document.getElementById('btn-plan').disabled = false;
+                                    currentAbortController = null;
+                                    return;
+                                }
+                            } catch (e) {
+                                // Ignore parse errors for keepalive messages
+                            }
+                        }
+                    }
+                }
+            } catch (error) {
+                // Check if error is due to abort
+                if (error.name === 'AbortError' || signal.aborted) {
+                    console.log('Planning aborted by user');
+                    updateStatus('规划已中止', 'info');
+                } else {
+                    console.error('Failed to plan path:', error);
+                    updateStatus('路径规划失败', 'error');
+                }
+                document.getElementById('btn-plan').disabled = false;
+                currentAbortController = null;
+            }
+        }
+        
+        function draw() {
+            // Clear canvas
+            ctx.fillStyle = '#fafafa';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            if (!mapData) return;
+            
+            // Draw obstacles
+            // Strips
+            mapData.strips.forEach(strip => {
+                drawStrip(strip);
+            });
+            
+            // Areas
+            mapData.areas.forEach(area => {
+                drawArea(area);
+            });
+            
+            // Sensitive points
+            mapData.sensitive_points.forEach(point => {
+                drawSensitivePoint(point);
+            });
+            
+            // Corridors
+            if (mapData.corridor && mapData.corridor.primary) {
+                drawCorridor(mapData.corridor.primary.points);
+            }
+            if (mapData.corridor && mapData.corridor.others) {
+                mapData.corridor.others.forEach(corr => {
+                    drawCorridor(corr.points, true);
+                });
+            }
+            
+            // Roads
+            mapData.roads.forEach(road => {
+                drawRoad(road.points);
+            });
+            
+            // Draw visited nodes (search process visualization)
+            if (visitedNodes && visitedNodes.length > 0) {
+                ctx.fillStyle = 'rgba(173, 216, 230, 0.6)'; // Light blue with transparency
+                // Sample nodes for performance (show every Nth node)
+                const step = Math.max(1, Math.floor(visitedNodes.length / 2000));
+                const nodeSize = 4; // Larger size for better visibility
+                for (let i = 0; i < visitedNodes.length; i += step) {
+                    const [sx, sy] = worldToScreen(visitedNodes[i][0], visitedNodes[i][1]);
+                    // Draw as circle for better visibility
+                    ctx.beginPath();
+                    ctx.arc(sx, sy, nodeSize, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+            
+            // Draw path
+            if (path && path.length > 1) {
+                ctx.strokeStyle = '#00ff00';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                const [sx, sy] = worldToScreen(path[0][0], path[0][1]);
+                ctx.moveTo(sx, sy);
+                for (let i = 1; i < path.length; i++) {
+                    const [sx, sy] = worldToScreen(path[i][0], path[i][1]);
+                    ctx.lineTo(sx, sy);
+                }
+                ctx.stroke();
+            }
+            
+            // Draw towers
+            turningTowers.forEach(tower => {
+                const [sx, sy] = worldToScreen(tower[0], tower[1]);
+                drawTriangle(sx, sy, 6, '#ffc800');
+            });
+            
+            straightTowers.forEach(tower => {
+                const [sx, sy] = worldToScreen(tower[0], tower[1]);
+                ctx.fillStyle = '#ff0000';
+                ctx.beginPath();
+                ctx.arc(sx, sy, 4, 0, Math.PI * 2);
+                ctx.fill();
+            });
+            
+            // Draw start and goal
+            if (start) {
+                const [sx, sy] = worldToScreen(start[0], start[1]);
+                ctx.fillStyle = '#ff0000';
+                ctx.beginPath();
+                ctx.arc(sx, sy, 8, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
+            
+            if (goal) {
+                const [sx, sy] = worldToScreen(goal[0], goal[1]);
+                ctx.fillStyle = '#0000ff';
+                ctx.beginPath();
+                ctx.arc(sx, sy, 8, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
+        }
+        
+        function drawStrip(strip) {
+            const [cx, cy] = worldToScreen(strip.center[0], strip.center[1]);
+            const angle = strip.angle_deg * Math.PI / 180;
+            const halfLength = strip.length_m * scale / 2;
+            const halfWidth = strip.width_m * scale / 2;
+            
+            ctx.save();
+            ctx.translate(cx, cy);
+            ctx.rotate(angle);
+            
+            ctx.fillStyle = strip.is_crossable ? 'rgba(153, 153, 153, 0.8)' : 'rgba(0, 0, 0, 0.5)';
+            ctx.fillRect(-halfLength, -halfWidth, strip.length_m * scale, strip.width_m * scale);
+            
+            ctx.strokeStyle = '#404040';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(-halfLength, -halfWidth, strip.length_m * scale, strip.width_m * scale);
+            
+            ctx.restore();
+        }
+        
+        function drawArea(area) {
+            const [cx, cy] = worldToScreen(area.center[0], area.center[1]);
+            const radius = area.radius_m * scale;
+            
+            ctx.fillStyle = area.is_enterable ? 'rgba(179, 179, 179, 0.5)' : 'rgba(0, 0, 0, 0.5)';
+            ctx.beginPath();
+            ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.strokeStyle = '#4d4d4d';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        }
+        
+        function drawSensitivePoint(point) {
+            const [cx, cy] = worldToScreen(point.center[0], point.center[1]);
+            
+            // Soft buffer (dashed outer circle) - draw first
+            ctx.strokeStyle = 'rgba(255, 100, 100, 0.4)'; // Light red dashed line
+            ctx.lineWidth = 2;
+            ctx.setLineDash([8, 4]);
+            ctx.beginPath();
+            ctx.arc(cx, cy, point.radius_soft_m * scale, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            
+            // Hard zone (solid inner circle)
+            ctx.fillStyle = 'rgba(255, 150, 150, 0.5)'; // Light red fill
+            ctx.beginPath();
+            ctx.arc(cx, cy, point.radius_hard_m * scale, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Add border for better visibility
+            ctx.strokeStyle = 'rgba(255, 100, 100, 0.7)'; // Light red border
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(cx, cy, point.radius_hard_m * scale, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+        
+        function drawCorridor(points, isOther = false) {
+            if (points.length < 2) return;
+            
+            ctx.strokeStyle = isOther ? 'rgba(255, 165, 0, 0.5)' : '#ffa500';
+            ctx.lineWidth = isOther ? 1 : 2;
+            ctx.setLineDash(isOther ? [2, 2] : [10, 5]);
+            ctx.beginPath();
+            
+            const [sx, sy] = worldToScreen(points[0][0], points[0][1]);
+            ctx.moveTo(sx, sy);
+            for (let i = 1; i < points.length; i++) {
+                const [sx, sy] = worldToScreen(points[i][0], points[i][1]);
+                ctx.lineTo(sx, sy);
+            }
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+        
+        function drawRoad(points) {
+            if (points.length < 2) return;
+            
+            ctx.strokeStyle = '#0064c8';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([5, 5, 1, 5]);
+            ctx.beginPath();
+            
+            const [sx, sy] = worldToScreen(points[0][0], points[0][1]);
+            ctx.moveTo(sx, sy);
+            for (let i = 1; i < points.length; i++) {
+                const [sx, sy] = worldToScreen(points[i][0], points[i][1]);
+                ctx.lineTo(sx, sy);
+            }
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+        
+        function drawTriangle(x, y, size, color) {
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.moveTo(x, y - size);
+            ctx.lineTo(x - size, y + size);
+            ctx.lineTo(x + size, y + size);
+            ctx.closePath();
+            ctx.fill();
+        }
+        
+        function updateStatus(message, type = 'info') {
+            const statusEl = document.getElementById('status');
+            statusEl.textContent = message;
+            statusEl.style.backgroundColor = 
+                type === 'error' ? 'rgba(231, 76, 60, 0.2)' :
+                type === 'success' ? 'rgba(46, 204, 113, 0.2)' :
+                'rgba(52, 152, 219, 0.2)';
+            
+            document.getElementById('status-text').textContent = message;
+        }
+        
+        // Initialize on load
+        window.addEventListener('load', init);
+    </script>
+</body>
+</html>
+
