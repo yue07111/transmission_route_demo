@@ -102,10 +102,13 @@ def place_towers(env, path: List[Cell], cfg: Dict) -> TowerPlacement:
         return TowerPlacement([], [], [], 0.0, [])
 
     turning_idx = extract_turning_indices(path)
-    turning_towers = [path[i] for i in turning_idx]
+    # Exclude start and goal from turning towers (they are not tower positions)
+    goal_idx = len(path) - 1
+    start_idx = 0
+    turning_towers = [path[i] for i in turning_idx if i != start_idx and i != goal_idx]
 
     straight_towers: List[Cell] = []
-    tower_sequence: List[Cell] = [turning_towers[0]]
+    tower_sequence: List[Cell] = [path[0]]  # Start point
     segments_info: List[Dict] = []
 
     for i in range(len(turning_idx) - 1):
@@ -125,10 +128,15 @@ def place_towers(env, path: List[Cell], cfg: Dict) -> TowerPlacement:
                 idx = int(round(t * (len(seg_cells) - 1)))
                 idx = max(1, min(len(seg_cells) - 2, idx))
                 cand = seg_cells[idx]
+                # Exclude goal from being selected as a tower
+                if cand == path[goal_idx]:
+                    continue
                 if not env.is_landable(cand) or env.is_blocked(cand):
                     alt = nearest_landable(env, cand, search_r)
-                    if alt is not None:
+                    if alt is not None and alt != path[goal_idx]:
                         cand = alt
+                    else:
+                        continue
                 chosen.append(cand)
 
         # Deduplicate while preserving order
@@ -142,9 +150,15 @@ def place_towers(env, path: List[Cell], cfg: Dict) -> TowerPlacement:
 
         # Append to tower sequence
         for c in chosen:
-            straight_towers.append(c)
-            tower_sequence.append(c)
-        tower_sequence.append(path[b_idx])
+            # Exclude goal from straight towers
+            if c != path[goal_idx]:
+                straight_towers.append(c)
+        # Only append turning point if it's not the goal
+        if path[b_idx] != path[goal_idx]:
+            tower_sequence.append(path[b_idx])
+        else:
+            # If this is the last segment ending at goal, just mark goal in sequence
+            tower_sequence.append(path[goal_idx])
 
         segments_info.append({
             "segment_index": i,

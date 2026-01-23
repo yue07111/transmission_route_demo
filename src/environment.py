@@ -37,15 +37,20 @@ class Environment:
         self.grid_h = int(round(self.height_m / self.resolution_m))
 
     def in_bounds(self, cell: Cell) -> bool:
+        """Check if cell is within original map bounds (for obstacle checking)"""
         x, y = cell
         return 0 <= x < self.grid_w and 0 <= y < self.grid_h
 
-    def world_to_grid(self, p: Point) -> Cell:
+    def world_to_grid(self, p: Point, clamp: bool = False) -> Cell:
+        """Convert world coordinates to grid coordinates.
+        If clamp=False, allows negative and out-of-bounds coordinates (for infinite map).
+        If clamp=True, clamps to original map bounds (for backward compatibility)."""
         x, y = p
         ix = int(round(x / self.resolution_m))
         iy = int(round(y / self.resolution_m))
-        ix = max(0, min(self.grid_w - 1, ix))
-        iy = max(0, min(self.grid_h - 1, iy))
+        if clamp:
+            ix = max(0, min(self.grid_w - 1, ix))
+            iy = max(0, min(self.grid_h - 1, iy))
         return (ix, iy)
 
     def grid_to_world(self, cell: Cell) -> Point:
@@ -62,21 +67,33 @@ class Environment:
         return (x, y)
 
     def is_blocked(self, cell: Cell) -> bool:
+        """Check if cell is blocked. Returns False for out-of-bounds cells (infinite map support)."""
         if self.hard_mask is None:
             return False
         x, y = cell
+        # For infinite map: out-of-bounds cells are not blocked (empty space)
+        if not (0 <= x < self.grid_w and 0 <= y < self.grid_h):
+            return False
         return bool(self.hard_mask[y, x])
 
     def is_landable(self, cell: Cell) -> bool:
+        """Check if cell is landable. Returns True for out-of-bounds cells (infinite map support)."""
         if self.landable is None:
             return True
         x, y = cell
+        # For infinite map: out-of-bounds cells are landable (empty space)
+        if not (0 <= x < self.grid_w and 0 <= y < self.grid_h):
+            return True
         return bool(self.landable[y, x])
 
     def cell_cost(self, cell: Cell) -> float:
+        """Get cell cost. Returns 0.0 for out-of-bounds cells (infinite map support)."""
         if self.costmap is None:
             return 0.0
         x, y = cell
+        # For infinite map: out-of-bounds cells have zero cost (empty space)
+        if not (0 <= x < self.grid_w and 0 <= y < self.grid_h):
+            return 0.0
         return float(self.costmap[y, x])
 
 

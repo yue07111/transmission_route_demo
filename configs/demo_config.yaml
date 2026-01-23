@@ -4,6 +4,10 @@ planner:
   heuristic_weight: 1.0
   # We allow negative rewards (corridor/roads), so clamp edge costs to be positive.
   min_step_cost: 0.05
+  # Prefer straight paths: bonus for continuing in same direction (reduces unnecessary turns)
+  straight_preference_bonus: 2.0
+  # Extra penalty for turning (beyond turn_cost_weight) to discourage unnecessary turns
+  turn_penalty_extra: 5.0
 
 constraints:
   # Area (circle) constraints: damping/entry penalty

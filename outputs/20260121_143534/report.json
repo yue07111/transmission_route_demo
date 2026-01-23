@@ -1,0 +1,201 @@
+{
+  "success": true,
+  "total_cost": 5538.209581991833,
+  "expansions": 11937,
+  "path_cells": 91,
+  "start_cell": [
+    6,
+    6
+  ],
+  "goal_cell": [
+    94,
+    52
+  ],
+  "towers": {
+    "turning_towers": 7,
+    "straight_towers": 8,
+    "tower_sequence": 15,
+    "max_span_m": 707.1067811865476,
+    "segments": [
+      {
+        "segment_index": 0,
+        "from": [
+          6,
+          6
+        ],
+        "to": [
+          8,
+          8
+        ],
+        "length_m": 141.4213562373095,
+        "n_required": 1,
+        "straight_towers": [
+          [
+            7,
+            7
+          ]
+        ]
+      },
+      {
+        "segment_index": 1,
+        "from": [
+          8,
+          8
+        ],
+        "to": [
+          48,
+          8
+        ],
+        "length_m": 2000.0,
+        "n_required": 2,
+        "straight_towers": [
+          [
+            21,
+            8
+          ],
+          [
+            35,
+            8
+          ]
+        ]
+      },
+      {
+        "segment_index": 2,
+        "from": [
+          48,
+          8
+        ],
+        "to": [
+          77,
+          37
+        ],
+        "length_m": 2050.6096654409894,
+        "n_required": 2,
+        "straight_towers": [
+          [
+            58,
+            18
+          ],
+          [
+            67,
+            27
+          ]
+        ]
+      },
+      {
+        "segment_index": 3,
+        "from": [
+          77,
+          37
+        ],
+        "to": [
+          81,
+          37
+        ],
+        "length_m": 200.0,
+        "n_required": 1,
+        "straight_towers": [
+          [
+            79,
+            37
+          ]
+        ]
+      },
+      {
+        "segment_index": 4,
+        "from": [
+          81,
+          37
+        ],
+        "to": [
+          94,
+          50
+        ],
+        "length_m": 919.2388155425118,
+        "n_required": 1,
+        "straight_towers": [
+          [
+            89,
+            43
+          ]
+        ]
+      },
+      {
+        "segment_index": 5,
+        "from": [
+          94,
+          50
+        ],
+        "to": [
+          94,
+          52
+        ],
+        "length_m": 100.0,
+        "n_required": 1,
+        "straight_towers": [
+          [
+            94,
+            51
+          ]
+        ]
+      }
+    ]
+  },
+  "constraint_checks": [
+    {
+      "name": "area_damping",
+      "entered_areas": [],
+      "cells_in_areas": {
+        "area_wetland_01": 0,
+        "area_forest_02": 0,
+        "area_hilly_03": 0,
+        "area_village_04": 0,
+        "area_quarry_05": 0,
+        "area_ice_06": 0,
+        "area_fault_07": 0
+      }
+    },
+    {
+      "name": "strip_crossing",
+      "ok": true,
+      "crossings": {
+        "strip_existing_line_01": 0,
+        "strip_pipeline_02": 3,
+        "strip_no_tower_03": 0,
+        "strip_existing_line_04": 3,
+        "strip_railway_05": 0
+      },
+      "min_cross_angle_deg": {
+        "strip_existing_line_01": null,
+        "strip_pipeline_02": 55.00000000000001,
+        "strip_no_tower_03": null,
+        "strip_existing_line_04": 45.00000000000001,
+        "strip_railway_05": null
+      },
+      "violations": []
+    },
+    {
+      "name": "sensitive_facility",
+      "ok": true
+    },
+    {
+      "name": "corridor_reuse",
+      "cells_near_primary_corridor": 19,
+      "ratio_near": 0.2087912087912088
+    },
+    {
+      "name": "road_reward",
+      "ok": true
+    },
+    {
+      "name": "landable_points",
+      "turning_points": 5,
+      "turning_points_not_landable": 0,
+      "bad_cells": []
+    },
+    {
+      "name": "turn_angle",
+      "ok": true
+    }
+  ]
+}

@@ -3,4 +3,6 @@ numpy>=1.23
 matplotlib>=3.6
 imageio>=2.31
 pillow>=9.5
+pygame
+flask>=2.0>=2.0
 
