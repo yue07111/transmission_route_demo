@@ -1,0 +1,171 @@
+# preprocess_rules.yaml (default)
+# 你可以后续按项目不断补充/微调：新增规则不需要改代码。
+
+min_score: 2.0
+
+# 起点/终点识别关键词（当起终点与地物同一KML时生效）
+start_goal:
+  start_exact_patterns: ["^(起点|始点|start|source)$"]
+  goal_exact_patterns: ["^(终点|止点|end|goal|destination)$"]
+  start_contains_patterns: ["起点", "始点", "\\bstart\\b", "\\bsource\\b"]
+  goal_contains_patterns: ["终点", "止点", "\\bend\\b", "\\bgoal\\b", "\\bdestination\\b"]
+
+# 目录/命名漂移归一
+synonyms:
+  "交通/": "交通敏感点/"
+  "交通$": "交通敏感点"
+  "政府规划区域": "重要设施与政府规划敏感点"
+  "重要设施": "重要设施与政府规划敏感点"
+  "电力线路": "电力设施敏感点"
+  "电力设施": "电力设施敏感点"
+  "生态保护红线初步成果": "生态保护红线"
+  "云浮市生态保护红线180804": "生态保护红线"
+  "Ⅰ级": "I级"
+  "Ⅱ级": "II级"
+  "Ⅲ级": "III级"
+  "Ⅰ": "I"
+  "Ⅱ": "II"
+  "Ⅲ": "III"
+
+# 文字标注/注记
+annotation_rules:
+  - pattern: "标注|文字|说明|注记|label|annotation"
+
+# 默认参数（不写也可，代码内有兜底）
+default_params:
+  area: {hard: false, cost: 10.0, enter_penalty: 0.0}
+  strip: {width_m: 50.0, hard: false, cost: 5.0, min_cross_angle_deg: 30.0}
+  point: {hard: true, radius_m: 100.0, cost: 100.0}
+
+# “机场净空线”转“机场净空面”（你们现有算法阶段仍可读简化参数，同时保留raw_geom）
+line_to_polygon:
+  enable: true
+  keywords: ["机场净空", "净空", "规划机场", "airport", "机场"]
+  max_use_per_line: 3
+  boundary_match_ratio: 0.42  #不高于0.45
+  snap_tol_m: 30.0
+  close_tol_m: 30.0
+  max_area_km2: 80.0                 # 你提的“最大面不超过50km^2”
+  adaptive_snap: true                 # 二次吸附补环，提高成面率
+  poly_boundary_support_ratio: 0.30   # 边界支撑度阈值（不够就过滤）
+  export_as_area: true
+  area_params: {hard: true, cost: 9999.0, enter_penalty: 0.0}
+
+# 分类规则：folder/name/desc 打分命中，适配混放
+feature_rules:
+  - name: highway
+    feature_type: road_highway
+    constraint_role: strip
+    confidence: high
+    geom_types: ["LineString"]
+    name_patterns: ["高速", "高速公路", "g\\d+"]
+    folder_patterns: ["交通敏感点", "交通"]
+    params: {width_m: 80.0, hard: false, cost: 5.0, min_cross_angle_deg: 30.0}
+
+  - name: railway
+    feature_type: road_railway
+    constraint_role: strip
+    confidence: high
+    geom_types: ["LineString"]
+    name_patterns: ["铁路", "高铁", "rail"]
+    folder_patterns: ["交通敏感点", "交通"]
+    params: {width_m: 60.0, hard: false, cost: 6.0, min_cross_angle_deg: 30.0}
+
+  - name: airport_clearance_line
+    feature_type: airport_clearance
+    constraint_role: strip
+    confidence: high
+    geom_types: ["LineString"]
+    name_patterns: ["机场净空", "净空", "规划机场"]
+    folder_patterns: ["机场", "净空"]
+    params: {width_m: 200.0, hard: true, cost: 9999.0, min_cross_angle_deg: 45.0}
+
+  - name: eco_redline
+    feature_type: eco_redline
+    constraint_role: area
+    confidence: medium
+    geom_types: ["Polygon", "MultiPolygon", "LineString"]
+    name_patterns: ["生态保护红线", "红线"]
+    folder_patterns: ["生态保护红线", "生态敏感点"]
+    params: {hard: true, cost: 9999.0, enter_penalty: 0.0}
+
+  - name: forest_I
+    feature_type: forest_I
+    constraint_role: area
+    confidence: high
+    geom_types: ["Polygon", "MultiPolygon", "LineString"]
+    name_patterns: ["I级保护林地", "一级林地", "I级林地", "I级保护林地"]
+    folder_patterns: ["生态敏感点", "林地"]
+    params: {hard: true, cost: 9999.0, enter_penalty: 0.0}
+
+  - name: water_source_protection
+    feature_type: water_source_protection
+    constraint_role: area
+    confidence: medium
+    geom_types: ["Polygon", "MultiPolygon", "LineString"]
+    name_patterns: ["水源保护区", "饮用水源", "水源地"]
+    folder_patterns: ["水源"]
+    params: {hard: true, cost: 9999.0, enter_penalty: 0.0}
+
+  - name: gas_pipeline
+    feature_type: gas_pipeline
+    constraint_role: strip
+    confidence: medium
+    geom_types: ["LineString"]
+    name_patterns: ["燃气管道", "天然气", "管道"]
+    folder_patterns: ["燃气", "管道"]
+    params: {width_m: 40.0, hard: false, cost: 8.0, min_cross_angle_deg: 30.0}
+
+  - name: dense_housing
+    feature_type: dense_housing
+    constraint_role: area
+    confidence: medium
+    geom_types: ["Polygon", "MultiPolygon", "LineString"]
+    name_patterns: ["密集房屋群", "房屋", "居民点", "居民区", "村庄", "城镇"]
+    folder_patterns: ["房屋", "居民", "村"]
+    params: {hard: true, cost: 9999.0, enter_penalty: 0.0}
+
+  - name: mine_area
+    feature_type: mine_area
+    constraint_role: area
+    confidence: low
+    geom_types: ["Polygon", "MultiPolygon", "LineString"]
+    name_patterns: ["矿", "采矿", "矿区", "矿山"]
+    folder_patterns: ["矿"]
+    params: {hard: false, cost: 80.0, enter_penalty: 10.0}
+
+  - name: gov_planning_area
+    feature_type: gov_planning_area
+    constraint_role: area
+    confidence: medium
+    geom_types: ["Polygon", "MultiPolygon", "LineString"]
+    name_patterns: ["政府规划", "规划区域", "规划控制"]
+    folder_patterns: ["重要设施与政府规划敏感点", "政府规划区域"]
+    params: {hard: false, cost: 50.0, enter_penalty: 20.0}
+
+  - name: power_plant_point
+    feature_type: power_plant
+    constraint_role: point
+    confidence: medium
+    geom_types: ["Point"]
+    name_patterns: ["发电站", "电厂", "变电站"]
+    folder_patterns: ["电力设施敏感点", "电力线路"]
+    params: {hard: true, radius_m: 300.0, cost: 9999.0}
+
+  - name: existing_power_line
+    feature_type: existing_power_line
+    constraint_role: corridor
+    confidence: medium
+    geom_types: ["LineString"]
+    name_patterns: ["\\b\\d{2,3}kv\\b", "500kv", "220kv", "110kv", "输电线路", "电力线路"]
+    folder_patterns: ["电力设施敏感点", "电力线路"]
+    params: {}
+
+  - name: tower_point
+    feature_type: tower_point
+    constraint_role: tower_point
+    confidence: medium
+    geom_types: ["Point"]
+    name_patterns: ["^n\\d+", "^t\\d+", "塔位", "转角塔", "直线塔"]
+    folder_patterns: ["塔位", "杆塔", "塔点"]
+    params: {}
