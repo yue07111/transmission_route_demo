@@ -1,0 +1,3 @@
+match_type,pattern,feature_type,constraint_role,params_json,priority
+# folder_regex,500KV梧罗线.*机场净空,airport_clearance,strip,"{\"width_m\":200,\"hard\":true,\"cost\":9999,\"min_cross_angle_deg\":45}",100
+# name_regex,.*水源保护区.*,water_source_protection,area,"{\"hard\":true,\"cost\":9999}",90
